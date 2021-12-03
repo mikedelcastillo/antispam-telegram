@@ -86,10 +86,10 @@ bot.on('message', async ctx => {
     })
 
     console.table(lines)
-
+    const numbersFound = [phoneNumber].concat(lines).join(" ").match(PHONE_REGEX)
 
     ctx.reply([
-        `PHONE: ${phoneNumber}`,
+        `NUMBERS: ${numbersFound}`,
         `MESSAGE: \n${lines.join("\n")}`
     ].join("\n\n"))
 })
