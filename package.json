@@ -1,0 +1,29 @@
+{
+  "name": "antispam-telegram",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "axios": "^0.24.0",
+    "node-tesseract-ocr": "^2.2.1",
+    "telegraf": "^4.4.2",
+    "tsv": "^0.2.0",
+    "typescript": "^4.5.2"
+  },
+  "scripts": {
+    "docker:build": "docker build . -t mikedelcastillo/antispam-telegram",
+    "docker:run": "docker run --env-file ./.env mikedelcastillo/antispam-telegram",
+    "docker:dev": "nodemon --exec \"npm run docker:build && npm run docker:run\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mikedelcastillo/stop-spam-telegram.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mikedelcastillo/stop-spam-telegram/issues"
+  },
+  "homepage": "https://github.com/mikedelcastillo/stop-spam-telegram#readme"
+}
