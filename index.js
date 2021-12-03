@@ -3,7 +3,9 @@ const { Telegraf } = require('telegraf')
 const tesseract = require("node-tesseract-ocr")
 const axios = require('axios')
 const fs = require('fs')
+const fsp = fs.promises
 const path = require('path')
+const { models } = require('./antispam-db')
 
 const PHONE_REGEX = /(63|0*9)\s*(\d{3,4})\s*(\d{3,4})\s*(\d{3,4})/gmi
 const MEDIA_STORAGE = "./storage/media"
@@ -25,8 +27,22 @@ bot.help(replyWithHelp)
 bot.on('message', async ctx => {
     const { message } = ctx?.update
     const { from, chat, photo, document } = message
-
-    console.log(message)
+    
+    const getTelegramUser = () => models.TelegramUser.query().findById(from.id)
+    let telegramUser = await getTelegramUser()
+    const telegramUserData = {
+        telegram_user_id: from.id,
+        first_name: from.first_name,
+        last_name: from.last_name,
+        username: from.username,
+        user_json: JSON.stringify(from),
+    }
+    if(!telegramUser){
+        await models.TelegramUser.query().insert(telegramUserData)
+        telegramUser = await getTelegramUser()
+    } else{
+        await models.TelegramUser.query().patch(telegramUserData)
+    }
 
     const ALLOWED_TYPES = ["image/jpg", "image/png"]
     
@@ -40,7 +56,6 @@ bot.on('message', async ctx => {
     )
 
     try{
-
         let photoUrl = null
         let fileId = null
         if(document){
@@ -63,6 +78,14 @@ bot.on('message', async ctx => {
                     .on('error', reject)
             });
         })
+
+        await updateMessage("logging telegram message...")
+
+        await models.TelegramMessage.query().insert({
+            telegram_message_id: message.message_id,
+            telegram_user_id: from.id,
+            message_json: JSON.stringify(message),
+        })
     
         await updateMessage("reading image...")
     
@@ -76,7 +99,7 @@ bot.on('message', async ctx => {
         await updateMessage("parsing text...")
     
         let data = (new (require('tsv').Parser)("\t", { header: true })).parse(tsv.trim())
-        data = data.filter(part => Number(part.conf) >= 10)
+        data = data.filter(part => Number(part.conf) >= 1)
     
         console.table(data)
     
@@ -99,25 +122,53 @@ bot.on('message', async ctx => {
             }
         }
     
-        if(!phoneNumber) return await updateMessage("can't find the phone number :/ try sending again (or send as file)")
+        if(!phoneNumber) {
+            await fsp.rm(fileName)
+            await updateMessage("can't find the phone number :/ try sending again (or send as file)")
+            return 
+        }
     
+        
         // Prune lines with more symbols
         lines = lines.filter(line => {
             const ok = line.match(/[a-z0-9]/gmi)?.length || 0
             const notOk = line.match(/[^a-z0-9]/gmi)?.length || 0
-            console.log(line, ok, notOk)
             return ok > notOk
         })
-    
+
+        const text = lines.join("\n")
+        
         console.table(lines)
         const numbersFound = [phoneNumber].concat(lines).join(" ").match(PHONE_REGEX)
-    
+
+        await updateMessage(`logging spammers...`)
+        for(let phone_number of numbersFound){
+            phone_number = models.Spammer.formatPhoneNumber(phone_number)
+            let spammer = await models.Spammer.query().findById(phone_number)
+            if(!spammer){
+                await updateMessage(`logging spammer (${phone_number})...`)
+                await models.Spammer.query().insert({ 
+                    spammer_id: phone_number,
+                    phone_number,
+                })
+            }
+            await models.SpammerMessage.query().insert({
+                spammer_id: phone_number,
+                telegram_user_id: from.id,
+                tesseract_tsv: tsv,
+                tesseract_txt: text,
+                file_id: fileId,
+                file_path: fileName,
+            })
+        }
+        
         await updateMessage([
             `NUMBERS: ${numbersFound}`,
-            `MESSAGE: \n${lines.join("\n")}`
+            `MESSAGE: \n${text}`
         ].join("\n\n"))
     } catch(e){
-        await updateMessage(`something went wrong... ${e.name}: ${e.message}`)
+        await updateMessage(`something went wrong...\n\n${e.name}: ${e.message}`)
+        console.error(e)
     }
 
 })

@@ -1,0 +1,3 @@
+[submodule "antispam-db"]
+	path = antispam-db
+	url = git@github.com:mikedelcastillo/antispam-db.git
