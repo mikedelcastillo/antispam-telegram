@@ -8,6 +8,8 @@ const path = require('path')
 const PHONE_REGEX = /(63|0*9)\s*(\d{3,4})\s*(\d{3,4})\s*(\d{3,4})/gmi
 const MEDIA_STORAGE = "./storage/media"
 
+fs.mkdirSync(MEDIA_STORAGE)
+
 const replyWithHelp = ctx => {
     ctx.reply('send me a screenshot of a spam text. make sure the phone number is visible along with the text message. in case the message is too long, copy the message and paste it here after the prompt')
 }
