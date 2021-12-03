@@ -5,6 +5,7 @@
   "main": "index.js",
   "dependencies": {
     "axios": "^0.24.0",
+    "dotenv": "^10.0.0",
     "node-tesseract-ocr": "^2.2.1",
     "telegraf": "^4.4.2",
     "tsv": "^0.2.0",
@@ -12,7 +13,7 @@
   },
   "scripts": {
     "docker:build": "docker build . -t mikedelcastillo/antispam-telegram",
-    "docker:run": "docker run --env-file ./.env mikedelcastillo/antispam-telegram",
+    "docker:run": "docker run --env-file ./.env --volume \"`pwd`/storage:/usr/src/app/storage\" mikedelcastillo/antispam-telegram",
     "docker:dev": "nodemon --exec \"npm run docker:build && npm run docker:run\""
   },
   "repository": {

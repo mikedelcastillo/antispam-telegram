@@ -1,3 +1,4 @@
+require('dotenv').config()
 const { Telegraf } = require('telegraf')
 const tesseract = require("node-tesseract-ocr")
 const axios = require('axios')
@@ -36,7 +37,7 @@ bot.on('message', async ctx => {
         photoUrl = (await ctx.telegram.getFileLink(fileId)).href
     }
     const ext = photoUrl.split(".").pop()
-    const fileName = [fileId, ext].join(".")
+    const fileName = require('path').join("./storage", [fileId, ext].join("."))
     
     await axios({url: photoUrl, responseType: 'stream'}).then(response => {
         return new Promise((resolve, reject) => {
