@@ -3,9 +3,10 @@ const { Telegraf } = require('telegraf')
 const tesseract = require("node-tesseract-ocr")
 const axios = require('axios')
 const fs = require('fs')
-const { collapseTextChangeRangesAcrossMultipleVersions } = require('typescript')
+const path = require('path')
 
 const PHONE_REGEX = /(63|0*9)\s*(\d{3,4})\s*(\d{3,4})\s*(\d{3,4})/gmi
+const MEDIA_STORAGE = "./storage/media"
 
 const replyWithHelp = ctx => {
     ctx.reply('send me a screenshot of a spam text. make sure the phone number is visible along with the text message. in case the message is too long, copy the message and paste it here after the prompt')
@@ -36,8 +37,16 @@ bot.on('message', async ctx => {
         fileId = largetPhoto.file_id
         photoUrl = (await ctx.telegram.getFileLink(fileId)).href
     }
+
+    const messageInfo = await ctx.reply("downloading image...")
+    const updateMessage = async text => await ctx.telegram.editMessageText(
+        messageInfo.chat.id,
+        messageInfo.message_id,
+        undefined, text,
+    )
+
     const ext = photoUrl.split(".").pop()
-    const fileName = require('path').join("./storage", [fileId, ext].join("."))
+    const fileName = path.join(MEDIA_STORAGE, [from.username, fileId, ext].join("."))
     
     await axios({url: photoUrl, responseType: 'stream'}).then(response => {
         return new Promise((resolve, reject) => {
@@ -47,6 +56,8 @@ bot.on('message', async ctx => {
         });
     })
 
+    await updateMessage("reading image...")
+
     const tsv = await tesseract.recognize(fileName, {
         lang: "eng",
         oem: 3,
@@ -54,8 +65,12 @@ bot.on('message', async ctx => {
         presets: ["tsv"],
     })
 
+    await updateMessage("parsing text...")
+
     let data = (new (require('tsv').Parser)("\t", { header: true })).parse(tsv.trim())
-    data = data.filter(part => Number(part.conf) >= 25)
+    data = data.filter(part => Number(part.conf) >= 10)
+
+    console.table(data)
 
     let lines = {}
     for(let part of data){
@@ -66,7 +81,7 @@ bot.on('message', async ctx => {
     
     // We assume that the phone number can be found at the top
     let phoneNumber = null
-    for(let i = 0; i < lines.length; i++){
+    for(let i = 0; i < lines.length / 2; i++){
         const line = lines[i]
         const match = line.match(PHONE_REGEX)
         if(match){
@@ -76,7 +91,7 @@ bot.on('message', async ctx => {
         }
     }
 
-    if(!phoneNumber) return ctx.reply("can't find the phone number :/ try sending again (or send as file)")
+    if(!phoneNumber) return await updateMessage("can't find the phone number :/ try sending again (or send as file)")
 
     // Prune lines with more symbols
     lines = lines.filter(line => {
@@ -89,7 +104,7 @@ bot.on('message', async ctx => {
     console.table(lines)
     const numbersFound = [phoneNumber].concat(lines).join(" ").match(PHONE_REGEX)
 
-    ctx.reply([
+    await updateMessage([
         `NUMBERS: ${numbersFound}`,
         `MESSAGE: \n${lines.join("\n")}`
     ].join("\n\n"))

@@ -14,7 +14,8 @@
   "scripts": {
     "docker:build": "docker build . -t mikedelcastillo/antispam-telegram",
     "docker:run": "docker run --env-file ./.env --volume \"`pwd`/storage:/usr/src/app/storage\" mikedelcastillo/antispam-telegram",
-    "docker:dev": "nodemon --exec \"npm run docker:build && npm run docker:run\""
+    "docker:dev": "nodemon --exec \"npm run docker:build && npm run docker:run\"",
+    "mkdir": "mkdir -p \"`pwd`/storage/media\""
   },
   "repository": {
     "type": "git",
