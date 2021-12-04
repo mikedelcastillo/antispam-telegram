@@ -24,7 +24,11 @@ const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN)
 bot.start(replyWithHelp)
 bot.help(replyWithHelp)
 
+const queue = []
+let queueRunning = false
+
 bot.on('message', async ctx => {
+
     const { message } = ctx?.update
     const { from, chat, photo, document } = message
     
@@ -48,12 +52,24 @@ bot.on('message', async ctx => {
     
     if(!photo?.length && !(ALLOWED_TYPES.includes(document?.mime_type))) return replyWithHelp(ctx)
 
-    const messageInfo = await ctx.reply("downloading image...")
+    const messageInfo = await ctx.reply("your message has been queued...")
     const updateMessage = async text => await ctx.telegram.editMessageText(
         messageInfo.chat.id,
         messageInfo.message_id,
         undefined, text,
     )
+
+    
+    queue.push({
+        ctx, message, from, chat, photo, document,
+        updateMessage, messageInfo, telegramUser
+    })
+
+    if(!queueRunning) queueLoop()
+})
+
+async function processImageRequest({ ctx, message, from, chat, photo, document, updateMessage, messageInfo, telegramUser }){
+    await updateMessage("downloading image...")
 
     try{
         let photoUrl = null
@@ -186,8 +202,19 @@ bot.on('message', async ctx => {
         await updateMessage(`something went wrong...\n\n${e.name}: ${e.message}`)
         console.error(e)
     }
+}
 
-})
+async function queueLoop(){
+    queueRunning = true
+    const fullContext = queue.shift()
+    for(let i = 0; i < queue.length; i++){
+        const queuedContext = queue[i]
+        await queuedContext.updateMessage(`waiting for ${i+1} other requests...`)
+    }
+    await processImageRequest(fullContext)
+    if(queue.length) queueLoop()
+    else queueRunning = false
+}
 
 bot.launch()
 console.log("The bot is running...")
