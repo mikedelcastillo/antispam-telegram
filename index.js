@@ -88,8 +88,24 @@ bot.on('message', async ctx => {
         })
     
         await updateMessage("reading image...")
+
+        let imageBuffer = await fsp.readFile(fileName)
+
+        await updateMessage("manipulating image buffer...")
+
+        const contrast = 2
+
+        imageBuffer = await require('sharp')(imageBuffer)
+            .resize({width: 3000})
+            .linear(contrast, -(128 * contrast) + 128)
+            .sharpen(5)
+            .toBuffer()
+        
+        // await fsp.writeFile(fileName+".manip."+ext, imageBuffer)
+
+        await updateMessage("running tesseract...")
     
-        const tsv = await tesseract.recognize(fileName, {
+        const tsv = await tesseract.recognize(imageBuffer, {
             lang: "eng",
             oem: 3,
             psm: 3,
